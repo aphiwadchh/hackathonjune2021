@@ -1,5 +1,6 @@
 import p5 from "p5";
 import ml5 from "ml5";
+import Gestures from './Gestures.js';
 
 export default class VideoPlayer {
   constructor(container) {
@@ -7,6 +8,7 @@ export default class VideoPlayer {
     this.debugMode = true;
     this.predictions = [];
     this.video = null;
+		this.gestures = new Gestures();
     this.init();
   }
 
@@ -57,7 +59,7 @@ export default class VideoPlayer {
           //this.createPauseButton(sketch);
           this.createPlayPauseButton(sketch);
         }
-
+        /*
         this.video = sketch.createVideo(
           "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
           () => {
@@ -68,7 +70,7 @@ export default class VideoPlayer {
         this.video.parent(this.container);
         this.video.volume(0);
         this.video.attribute("controls", true);
-
+        */
         webcam = sketch.createCapture(sketch.VIDEO);
         webcam.hide();
 
@@ -77,9 +79,6 @@ export default class VideoPlayer {
           {
             flipHorizontal: true
           },
-          () => {
-            console.log("ml5 loaded");
-          }
         );
 
         // This sets up an event that fills the global variable "predictions"
@@ -105,133 +104,11 @@ export default class VideoPlayer {
     new p5(s);
   }
 
-  geometricMean(nums) {
-    return Math.pow(
-      nums.reduce((x, y) => x * y),
-      1 / nums.length
-    );
-  }
-
-  isInOrder(nums) {
-    for (let i = 0; i + 1 < nums.length; i++) {
-      if (nums[i] > nums[i + 1]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  slopesBetween(points) {
-    return points.slice(0, points.length - 1).map(
-      (p, i) =>
-        // rise over run (change in Y / change in X)
-        (points[i + 1][1] - points[i][1]) / (points[i + 1][0] - points[i][0])
-    );
-  }
-
-  slopeBetween(points) {
-    return this.slopesBetween([points[0], points[points.length - 1]])[0];
-  }
-
-  isHorizontalish(points) {
-    return -1 < this.slopeBetween(points) < 1;
-  }
-
-  isVerticalish(points) {
-    return !this.isHorizontalish(points);
-  }
-
-  isApproximatelyEqual(a, b, error = 0.25) {
-    return 1 - error <= Math.min(a, b) / Math.max(a, b);
-  }
-
-  isParallelishToScreen(points) {
-    let zs = points.map((p) => p[2]);
-    return this.isApproximatelyEqual(Math.max(zs), Math.max(zs));
-  }
-
-  isStraightish(points, quick = false) {
-    let slopes = this.slopesBetween(points);
-    let avg = this.geometricMean(slopes);
-    for (let i = 0; i < slopes.length; i++) {
-      // currently the wiggle rooom for straightish is .1 = 10%
-      if (!this.isApproximatelyEqual(avg, slopes[i], 0.1)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  isRightish(points, quick = false) {
-    return (
-      (quick || (this.isHorizontalish(points) && this.isStraightish(points))) &&
-      this.isInOrder(points.map((x) => x[0]))
-    );
-  }
-
-  isLeftish(points, quick = false) {
-    return (
-      (quick || (this.isHorizontalish(points) && this.isStraightish(points))) &&
-      !this.isRightish(points, true)
-    );
-  }
-
-  isUpish(points, quick = false) {
-    return (
-      (quick || (this.isVerticalish(points) && this.isStraightish(points))) &&
-      this.isInOrder(points.map((x) => x[1]))
-    );
-  }
-
-  isDownish(points, quick = false) {
-    return (
-      (quick || (this.isVerticalish(points) && this.isStraightish(points))) &&
-      !this.isUpish(points, true)
-    );
-  }
-
-  isHighFive(hand) {
-    console.log(hand.annotations.indexFinger);
-    console.log(
-      "is straightish index: ",
-      this.isStraightish(hand.annotations.indexFinger)
-    );
-    console.log("is upish index: ", this.isUpish(hand.annotations.indexFinger));
-    return (
-      // this.isParallelishToScreen(hand.landmarks) &&
-      this.isUpish(hand.annotations.indexFinger)
-      // this.isUpish(hand.annotations.middleFinger) &&
-      // this.isUpish(hand.annotations.ringFinger) &&
-      // this.isUpish(hand.annotations.pinky)
-    );
-  }
-
-  isTwoFingerPointRight(hand) {
-    return (
-      this.isParallelishToScreen(hand.landmarks) &&
-      this.isRightish(hand.annotations.indexFinger) &&
-      this.isRightish(hand.annotations.middleFinger) &&
-      !this.isStraightish(hand.annotations.ringFinger) &&
-      !this.isStraightish(hand.annotations.pinky)
-    );
-  }
-
-  isTwoFingerPointLeft(hand) {
-    return (
-      this.isParallelishToScreen(hand.landmarks) &&
-      this.isLeftish(hand.annotations.indexFinger) &&
-      this.isLeftish(hand.annotations.middleFinger) &&
-      !this.isStraightish(hand.annotations.ringFinger) &&
-      !this.isStraightish(hand.annotations.pinky)
-    );
-  }
-
-  debug(hand) {}
-
   // A function to draw ellipses over the detected keypoints
   drawKeypoints(sketch, predictions) {
     for (let i = 0; i < predictions.length; i += 1) {
       const prediction = predictions[i];
+			this.gestures.debug(predictions);
 
       // let isHighFive = this.isHighFive(prediction);
 
