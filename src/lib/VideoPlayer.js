@@ -7,15 +7,37 @@ export default class VideoPlayer {
     this.container = container;
     this.debugMode = true;
     this.predictions = [];
-    this.video = null;
+    this.highFiveCooldown = {
+      flag: false,
+      timing: 500,
+      timeout: null
+    };
+    this.intervalFwd = null,
+    this.intervalRwd = null,
     this.init();
   }
 
   createPlayPauseButton(sketch) {
-    let playPauseButton = sketch.createButton("Play/Pause");
+    const playPauseButton = sketch.createButton("Play/Pause");
     playPauseButton.parent(sketch.select('#debug-container'))
     playPauseButton.mousePressed(() => {
       this.togglePlayPause();
+    });
+  }
+
+  createSkipAheadButton(sketch) {
+    const skipAheadButton = sketch.createButton("Skip >> 10s");
+    skipAheadButton.parent(sketch.select('#debug-container'))
+    skipAheadButton.mousePressed(() => {
+      this.skipAhead();
+    });
+  }
+
+  createSkipBackButton(sketch) {
+    const skipBackButton = sketch.createButton("Skip << 10s");
+    skipBackButton.parent(sketch.select('#debug-container'))
+    skipBackButton.mousePressed(() => {
+      this.skipBack();
     });
   }
 
@@ -27,8 +49,22 @@ export default class VideoPlayer {
     }
   }
 
+  skipBack(time = 10) {
+    this.video.elt.currentTime -= time;
+  }
+
+  skipAhead(time = 10) {
+    this.video.elt.currentTime += time;
+  }
+
   detectHighFive() {
     console.log("I see a high five");
+  }
+
+  resetHighFiveCooldown() {
+    this.highFiveCooldown.timeout = setTimeout(() => {
+      this.highFiveCooldown.flag = false;
+    }, this.highFiveCooldown.timing);
   }
 
   init() {
@@ -53,8 +89,7 @@ export default class VideoPlayer {
         );
         this.video.parent(this.container);
         this.video.volume(0);
-        this.video.attribute("controls", true);
-
+        // this.video.attribute("controls", true);
         webcam = sketch.createCapture(sketch.VIDEO);
         webcam.size(sketch.width, sketch.height)
         webcam.parent(debugContainer)
@@ -90,6 +125,8 @@ export default class VideoPlayer {
 
         if (this.debugMode) {
           this.createPlayPauseButton(sketch);
+          this.createSkipBackButton(sketch);
+          this.createSkipAheadButton(sketch);
         }
       };
 
@@ -129,7 +166,15 @@ export default class VideoPlayer {
   startClassify(prediction) {
     switch (Gestures.readGesture(prediction)) {
       case Gestures.HIGHFIVE:
-        console.log('5')
+        if(!this.highFiveCooldown.flag){
+            this.highFiveCooldown.flag = true;
+            this.togglePlayPause();
+            this.resetHighFiveCooldown();
+          } else {
+            clearTimeout(this.highFiveCooldown.timeout);
+            this.resetHighFiveCooldown();
+
+          }console.log('5')
         break;;
       case Gestures.TWOFINGERPOINTLEFT:
         console.log('<<')
