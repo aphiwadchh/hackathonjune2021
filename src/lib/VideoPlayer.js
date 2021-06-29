@@ -12,27 +12,43 @@ export default class VideoPlayer {
       timing: 500,
       timeout: null
     };
+    this.intervalFwd = null,
+    this.intervalRwd = null,
     this.init();
   }
 
   createPlayButton(sketch) {
-    let playButton = sketch.createButton("Play");
+    const playButton = sketch.createButton("Play");
     playButton.mousePressed(() => {
       this.video.play();
     });
   }
 
   createPauseButton(sketch) {
-    let pauseButton = sketch.createButton("Pause");
+    const pauseButton = sketch.createButton("Pause");
     pauseButton.mousePressed(() => {
       this.video.pause();
     });
   }
 
   createPlayPauseButton(sketch) {
-    let playPauseButton = sketch.createButton("Play/Pause");
+    const playPauseButton = sketch.createButton("Play/Pause");
     playPauseButton.mousePressed(() => {
       this.togglePlayPause();
+    });
+  }
+
+  createSkipAheadButton(sketch) {
+    const skipAheadButton = sketch.createButton("Skip >> 10s");
+    skipAheadButton.mousePressed(() => {
+      this.skipAhead();
+    });
+  }
+
+  createSkipBackButton(sketch) {
+    const skipBackButton = sketch.createButton("Skip << 10s");
+    skipBackButton.mousePressed(() => {
+      this.skipBack();
     });
   }
 
@@ -42,6 +58,14 @@ export default class VideoPlayer {
     } else {
       this.video.pause();
     }
+  }
+
+  skipBack(time = 10) {
+    this.video.elt.currentTime -= time;
+  }
+
+  skipAhead(time = 10) {
+    this.video.elt.currentTime += time;
   }
 
   detectHighFive() {
@@ -67,6 +91,8 @@ export default class VideoPlayer {
           //this.createPlayButton(sketch);
           //this.createPauseButton(sketch);
           this.createPlayPauseButton(sketch);
+          this.createSkipBackButton(sketch);
+          this.createSkipAheadButton(sketch);
         }
         
         this.video = sketch.createVideo(
