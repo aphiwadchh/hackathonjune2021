@@ -177,9 +177,11 @@ export default class VideoPlayer {
           }console.log('5')
         break;;
       case Gestures.TWOFINGERPOINTLEFT:
+				this.skipBack()
         console.log('<<')
         break;;
       case Gestures.TWOFINGERPOINTRIGHT:
+				this.skipAhead()
         console.log('>>')
         break;;
       case Gestures.NONE:
