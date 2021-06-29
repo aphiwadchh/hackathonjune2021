@@ -58,19 +58,22 @@ export default class Gestures {
 	}
 
 	static isParallelishToScreen(points) {
-		let zs = points.map( ([x, y, z]) => z );
-		return Gestures.isApproximatelyEqual(Math.max(zs), Math.min(zs));
+		// the slope of the z-index between the furthest extremes
+		return Math.abs(Gestures.slopeBetween([
+			points.reduce( ([x,y,z], [x2, y2, z2]) => z <= z2 ? [x, y, z] : [x2, y2, z2] ), // min z-index
+			points.reduce( ([x,y,z], [x2, y2, z2]) => z >= z2 ? [x, y, z] : [x2, y2, z2] )  // max z-index
+		])[1]) < 0.4
 	}
 
 	static isStraightish(points) {
 		let slopes = Gestures.slopesBetween(points)
 		return true
 		return Math.abs(slopes[slopes.length-1][0] - slopes[0][0]) < 1
-		//return Gestures.isApproximatelyEqual(Math.min(slopes), Math.max(slopes))
 	}
 
 	static isCrookedish(points) {
 		return true
+		return !Gestures.isStraightish(points)
 	}
 
 	static isRightish(points, quick = false) {
@@ -114,9 +117,9 @@ export default class Gestures {
 	static isTwoFingerPointRight(hand, quick = false) {
 		return (
 			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isRightish(hand.annotations.indexFinger))) &&
-			Gestures.isRightish(hand.annotations.middleFinger, quick)
-			!Gestures.isCrookedish(hand.annotations.ringFinger) &&
-			!Gestures.isCrookedish(hand.annotations.pinky)
+			Gestures.isRightish(hand.annotations.middleFinger, quick) &&
+			Gestures.isCrookedish(hand.annotations.ringFinger) &&
+			Gestures.isCrookedish(hand.annotations.pinky)
 		);
 	}
 
@@ -124,9 +127,9 @@ export default class Gestures {
 	static isTwoFingerPointLeft(hand, quick = false) {
 		return (
 			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isLeftish(hand.annotations.indexFinger))) &&
-			Gestures.isLeftish(hand.annotations.middleFinger, quick)
-			!Gestures.isCrookedish(hand.annotations.ringFinger) &&
-			!Gestures.isCrookedish(hand.annotations.pinky)
+			Gestures.isLeftish(hand.annotations.middleFinger, quick) &&
+			Gestures.isCrookedish(hand.annotations.ringFinger) &&
+			Gestures.isCrookedish(hand.annotations.pinky)
 		);
 	}
 
@@ -142,9 +145,8 @@ export default class Gestures {
 	}
 
 	static readGesture(hand) {
-		let currentDate = new Date();
-		let time = currentDate.getHours() + ":" + currentDate.getMinutes() + ":" + currentDate.getSeconds();
 		if( ! Gestures.isParallelishToScreen(hand.landmarks) ) {
+			console.log('not parallel')
 			return Gestures.NONE
 		}
 		switch(Gestures.orientation(hand.annotations.indexFinger) ) {
