@@ -17,22 +17,9 @@ export default class VideoPlayer {
     this.init();
   }
 
-  createPlayButton(sketch) {
-    const playButton = sketch.createButton("Play");
-    playButton.mousePressed(() => {
-      this.video.play();
-    });
-  }
-
-  createPauseButton(sketch) {
-    const pauseButton = sketch.createButton("Pause");
-    pauseButton.mousePressed(() => {
-      this.video.pause();
-    });
-  }
-
   createPlayPauseButton(sketch) {
     const playPauseButton = sketch.createButton("Play/Pause");
+    playPauseButton.parent(sketch.select('#debug-container'))
     playPauseButton.mousePressed(() => {
       this.togglePlayPause();
     });
@@ -40,6 +27,7 @@ export default class VideoPlayer {
 
   createSkipAheadButton(sketch) {
     const skipAheadButton = sketch.createButton("Skip >> 10s");
+    skipAheadButton.parent(sketch.select('#debug-container'))
     skipAheadButton.mousePressed(() => {
       this.skipAhead();
     });
@@ -47,6 +35,7 @@ export default class VideoPlayer {
 
   createSkipBackButton(sketch) {
     const skipBackButton = sketch.createButton("Skip << 10s");
+    skipBackButton.parent(sketch.select('#debug-container'))
     skipBackButton.mousePressed(() => {
       this.skipBack();
     });
@@ -83,56 +72,80 @@ export default class VideoPlayer {
       let canvas;
       let webcam;
       let handpose;
+      let debugContainer = document.querySelector('#debug-container')
+      let readyState = 0
+      let statusText = "status:"
 
       sketch.setup = () => {
-        canvas = sketch.createCanvas(640, 480);
+        canvas = sketch.createCanvas(320, 240);
 
-        if (this.debugMode) {
-          //this.createPlayButton(sketch);
-          //this.createPauseButton(sketch);
-          this.createPlayPauseButton(sketch);
-          this.createSkipBackButton(sketch);
-          this.createSkipAheadButton(sketch);
-        }
-        
+        statusText += "\n- loading video"
         this.video = sketch.createVideo(
           "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
           () => {
             console.log("video loaded");
+            statusText += "\n- video loaded"
           }
         );
-        this.video.size(sketch.width, (sketch.width * 9) / 16);
         this.video.parent(this.container);
         this.video.volume(0);
-        this.video.attribute("controls", true);
-        
+        // this.video.attribute("controls", true);
         webcam = sketch.createCapture(sketch.VIDEO);
+        webcam.size(sketch.width, sketch.height)
+        webcam.parent(debugContainer)
         webcam.hide();
 
+        statusText += "\n- loading ml5"
         handpose = ml5.handpose(
           webcam,
           {
-            flipHorizontal: true
+            flipHorizontal: true,
+            maxContinuousChecks: 5
           },
-					() => console.log('ml5 loaded')
+          () => {
+            console.log('ml5 loaded')
+            statusText += "\n- ml5 loaded"
+          }
         );
 
         // This sets up an event that fills the global variable "predictions"
         // with an array every time new hand poses are detected
         handpose.on("predict", (results) => {
-          this.predictions = results;
+          readyState = 1
+          if(results.length > 0) {
+            console.log('ready')
+            statusText += "\nready"
+            readyState = 2
+            this.predictions = results;
+          }
         });
 
-        canvas.parent(this.container);
+        canvas.parent(debugContainer);
+        canvas.position(100, 100)
+
+        if (this.debugMode) {
+          this.createPlayPauseButton(sketch);
+          this.createSkipBackButton(sketch);
+          this.createSkipAheadButton(sketch);
+        }
       };
 
       sketch.draw = () => {
-        sketch.clear();
-        // sketch.background(0);
+        // sketch.clear();
+        sketch.background(200);
 
-        if (this.debugMode) {
-          // sketch.image(webcam, 0, 0, sketch.width, sketch.height);
-          this.drawKeypoints(sketch, this.predictions);
+        if (readyState == 0) {
+          sketch.text(statusText, 50, sketch.height / 2)
+        } else if(readyState > 0) {
+          sketch.push()
+          sketch.translate(webcam.width, 0)
+          sketch.scale(-1.0, 1.0)
+          sketch.image(webcam, 0 , 0, sketch.width, sketch.height);
+          sketch.pop()
+
+          if(readyState > 1) {
+            this.drawKeypoints(sketch, this.predictions);
+          }
         }
       };
     };
@@ -144,9 +157,16 @@ export default class VideoPlayer {
   drawKeypoints(sketch, predictions) {
     for (let i = 0; i < predictions.length; i += 1) {
       const prediction = predictions[i];
-			switch(Gestures.readGesture(prediction) ) {
-        case Gestures.HIGHFIVE:
-          if(!this.highFiveCooldown.flag){
+      this.startClassify(prediction)
+
+      this.drawHand(sketch, prediction.annotations)
+    }
+  }
+
+  startClassify(prediction) {
+    switch (Gestures.readGesture(prediction)) {
+      case Gestures.HIGHFIVE:
+        if(!this.highFiveCooldown.flag){
             this.highFiveCooldown.flag = true;
             this.togglePlayPause();
             this.resetHighFiveCooldown();
@@ -154,64 +174,39 @@ export default class VideoPlayer {
             clearTimeout(this.highFiveCooldown.timeout);
             this.resetHighFiveCooldown();
 
-          }
-					console.log('5')
-					break;;
-				case Gestures.TWOFINGERPOINTLEFT:
-					console.log('<<')
-					break;;
-				case Gestures.TWOFINGERPOINTRIGHT:
-					console.log('>>')
-					break;;
-				case Gestures.NONE:
-					console.log('no gesture')
-					Gestures.debug(prediction);
-					break;;
-			}
-
-      // let isHighFive = this.isHighFive(prediction);
-
-      // sketch.text(isHighFive ? "HighFive" : "Not HighFive", 100, 100);
-
-      // let oy = 100;
-      // for (let k of Object.keys(prediction.annotations)) {
-      //   sketch.fill(0);
-      //   sketch.text(
-      //     `${k}: [${prediction.annotations[k][0]}, ${prediction.annotations[k][1]}]`,
-      //     100,
-      //     oy
-      //   );
-      //   oy += 20;
-      // }
-
-      // let thumbDistanceFromPalm = sketch.dist(
-      //   prediction.annotations["palmBase"][0][0],
-      //   prediction.annotations["palmBase"][0][1],
-      //   prediction.annotations["thumb"][3][0],
-      //   prediction.annotations["thumb"][3][1]
-      // );
-      // sketch.fill(0);
-      // sketch.text(thumbDistanceFromPalm, 100, 300);
-      // console.log(prediction.annotations["palmBase"]);
-
-      for (let k of Object.keys(prediction.annotations)) {
-        sketch.push();
-        sketch.beginShape();
-        for (let f of prediction.annotations[k]) {
-          sketch.vertex(f[0], f[1]);
-          sketch.circle(f[0], f[1], 5);
-        }
-        sketch.endShape();
-        sketch.pop();
-      }
-
-      // for (let j = 0; j < prediction.landmarks.length; j += 1) {
-      //   const keypoint = prediction.landmarks[j];
-      //   sketch.fill(0, 255, 0);
-      //   sketch.noStroke();
-      //   sketch.ellipse(keypoint[0], keypoint[1], 10, 10);
-      // }
+          }console.log('5')
+        break;;
+      case Gestures.TWOFINGERPOINTLEFT:
+        console.log('<<')
+        break;;
+      case Gestures.TWOFINGERPOINTRIGHT:
+        console.log('>>')
+        break;;
+      case Gestures.NONE:
+        console.log('no gesture')
+        Gestures.debug(prediction);
+        break;;
     }
+  }
+
+  drawHand(sketch, annotations) {
+    for (let k of Object.keys(annotations)) {
+      sketch.push();
+      sketch.beginShape();
+      sketch.noFill();
+      sketch.stroke(0, 255, 0);
+      sketch.strokeWeight(5);
+      for (let f of annotations[k]) {
+        sketch.vertex(f[0] * (sketch.width / 640) + (sketch.width / 2), f[1] * (sketch.height / 480));
+        sketch.circle(f[0] * (sketch.width / 640) + (sketch.width / 2), f[1] * (sketch.height / 480), 5);
+      }
+      sketch.endShape();
+      sketch.pop();
+    }
+  }
+
+  ready() {
+
   }
 
   setDebugMode(state) {
