@@ -7,7 +7,11 @@ export default class VideoPlayer {
     this.container = container;
     this.debugMode = true;
     this.predictions = [];
-    this.video = null;
+    this.highFiveCooldown = {
+      flag: false,
+      timing: 500,
+      timeout: null
+    };
     this.init();
   }
 
@@ -44,6 +48,12 @@ export default class VideoPlayer {
     console.log("I see a high five");
   }
 
+  resetHighFiveCooldown() {
+    this.highFiveCooldown.timeout = setTimeout(() => {
+      this.highFiveCooldown.flag = false;
+    }, this.highFiveCooldown.timing);
+  }
+
   init() {
     const s = (sketch) => {
       let canvas;
@@ -58,7 +68,7 @@ export default class VideoPlayer {
           //this.createPauseButton(sketch);
           this.createPlayPauseButton(sketch);
         }
-        /*
+        
         this.video = sketch.createVideo(
           "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
           () => {
@@ -69,7 +79,7 @@ export default class VideoPlayer {
         this.video.parent(this.container);
         this.video.volume(0);
         this.video.attribute("controls", true);
-        */
+        
         webcam = sketch.createCapture(sketch.VIDEO);
         webcam.hide();
 
@@ -109,7 +119,16 @@ export default class VideoPlayer {
     for (let i = 0; i < predictions.length; i += 1) {
       const prediction = predictions[i];
 			switch(Gestures.readGesture(prediction) ) {
-				case Gestures.HIGHFIVE:
+        case Gestures.HIGHFIVE:
+          if(!this.highFiveCooldown.flag){
+            this.highFiveCooldown.flag = true;
+            this.togglePlayPause();
+            this.resetHighFiveCooldown();
+          } else {
+            clearTimeout(this.highFiveCooldown.timeout);
+            this.resetHighFiveCooldown();
+
+          }
 					console.log('5')
 					break;;
 				case Gestures.TWOFINGERPOINTLEFT:
