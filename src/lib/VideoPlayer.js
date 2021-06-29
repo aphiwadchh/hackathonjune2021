@@ -12,8 +12,11 @@ export default class VideoPlayer {
       timing: 500,
       timeout: null
     };
-    this.intervalFwd = null,
-    this.intervalRwd = null,
+    this.intervalFwd = null
+    this.intervalRwd = null
+
+    this.detectedGuesture = false
+
     this.init();
   }
 
@@ -112,7 +115,7 @@ export default class VideoPlayer {
         // with an array every time new hand poses are detected
         handpose.on("predict", (results) => {
           readyState = 1
-          if(results.length > 0) {
+          if (results.length > 0) {
             console.log('ready')
             statusText += "\nready"
             readyState = 2
@@ -136,14 +139,14 @@ export default class VideoPlayer {
 
         if (readyState == 0) {
           sketch.text(statusText, 50, sketch.height / 2)
-        } else if(readyState > 0) {
+        } else if (readyState > 0) {
           sketch.push()
           sketch.translate(webcam.width, 0)
           sketch.scale(-1.0, 1.0)
-          sketch.image(webcam, 0 , 0, sketch.width, sketch.height);
+          sketch.image(webcam, 0, 0, sketch.width, sketch.height);
           sketch.pop()
 
-          if(readyState > 1) {
+          if (readyState > 1) {
             this.drawKeypoints(sketch, this.predictions);
           }
         }
@@ -166,27 +169,36 @@ export default class VideoPlayer {
   startClassify(prediction) {
     switch (Gestures.readGesture(prediction)) {
       case Gestures.HIGHFIVE:
-        if(!this.highFiveCooldown.flag){
-            this.highFiveCooldown.flag = true;
-            this.togglePlayPause();
-            this.resetHighFiveCooldown();
-          } else {
-            clearTimeout(this.highFiveCooldown.timeout);
-            this.resetHighFiveCooldown();
+        if (!this.highFiveCooldown.flag) {
+          this.highFiveCooldown.flag = true;
+          this.togglePlayPause();
+          this.resetHighFiveCooldown();
+        } else {
+          clearTimeout(this.highFiveCooldown.timeout);
+          this.resetHighFiveCooldown();
 
-          }console.log('5')
+        }
+        console.log('5')
+        this.detectedKnownGuesture()
         break;;
       case Gestures.TWOFINGERPOINTLEFT:
         console.log('<<')
+        this.detectedKnownGuesture()
         break;;
       case Gestures.TWOFINGERPOINTRIGHT:
         console.log('>>')
+        this.detectedKnownGuesture()
         break;;
       case Gestures.NONE:
         console.log('no gesture')
+        this.detectedKnownGuesture(false)
         Gestures.debug(prediction);
         break;;
     }
+  }
+
+  detectedKnownGuesture(state = true) {
+    this.detectedGuesture = state
   }
 
   drawHand(sketch, annotations) {
@@ -194,7 +206,13 @@ export default class VideoPlayer {
       sketch.push();
       sketch.beginShape();
       sketch.noFill();
-      sketch.stroke(0, 255, 0);
+
+      if (this.detectedGuesture) {
+        sketch.stroke(0, 255, 0);
+      } else {
+        sketch.stroke(255, 0, 0);
+      }
+      
       sketch.strokeWeight(5);
       for (let f of annotations[k]) {
         sketch.vertex(f[0] * (sketch.width / 640) + (sketch.width / 2), f[1] * (sketch.height / 480));
@@ -203,10 +221,6 @@ export default class VideoPlayer {
       sketch.endShape();
       sketch.pop();
     }
-  }
-
-  ready() {
-
   }
 
   setDebugMode(state) {
