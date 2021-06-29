@@ -22,19 +22,27 @@ export default class Gestures {
 
 	static slopesBetween(points) {
 		return points.slice(0, points.length - 1).map(
-			(p, i) =>
-			// rise over run (change in Y / change in X)
-			(points[i + 1][1] - points[i][1]) / (points[i + 1][0] - points[i][0])
+			(p, i) => [
+				// rise over run (change in Y / change in X)
+				(points[i + 1][1] - points[i][1]) / (points[i + 1][0] - points[i][0]),
+				// rise over run (change in Z / change in X)
+				(points[i + 1][2] - points[i][2]) / (points[i + 1][0] - points[i][0])
+			]
 		);
 	}
 
 	static slopeBetween(points) {
-		return Gestures.slopesBetween([points[0], points[points.length - 1]])[0];
+		let slopes = Gestures.slopesBetween(points);
+		// average the slopes
+		return [
+			slopes.map( ([y, z]) => y).reduce( (a, b) => a+b) / slopes.length,
+			slopes.map( ([y, z]) => z).reduce( (a, b) => a+b) / slopes.length,
+		]
 	}
 
 	static isHorizontalish(points) {
-		let slope = Gestures.slopeBetween(points);
-		return -1 < slope && slope < 1
+		let [y, z] = Gestures.slopeBetween(points);
+		return -1 < y && y < 1
 	}
 
 	static isVerticalish(points) {
@@ -50,23 +58,19 @@ export default class Gestures {
 	}
 
 	static isParallelishToScreen(points) {
-		let zs = points.map((p) => p[2]);
+		let zs = points.map( ([x, y, z]) => z );
 		return Gestures.isApproximatelyEqual(Math.max(zs), Math.min(zs));
 	}
 
 	static isStraightish(points) {
-		let slopes = Gestures.slopesBetween(points);
-		if( slopes.length == 0 ) {
-			console.log(points)
-		}
-		let avg = slopes.reduce( (x, y) => x+y, 0 ) / slopes.length
-		for (let i = 0; i < slopes.length; i++) {
-			// currently the wiggle rooom for straightish is .3 = 30%
-			if (!Gestures.isApproximatelyEqual(avg, slopes[i], 2)) {
-				return false;
-			}
-		}
-		return true;
+		let slopes = Gestures.slopesBetween(points)
+		return true
+		return Math.abs(slopes[slopes.length-1][0] - slopes[0][0]) < 1
+		//return Gestures.isApproximatelyEqual(Math.min(slopes), Math.max(slopes))
+	}
+
+	static isCrookedish(points) {
+		return true
 	}
 
 	static isRightish(points, quick = false) {
@@ -110,9 +114,9 @@ export default class Gestures {
 	static isTwoFingerPointRight(hand, quick = false) {
 		return (
 			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isRightish(hand.annotations.indexFinger))) &&
-			Gestures.isRightish(hand.annotations.middleFinger) &&
-			!Gestures.isStraightish(hand.annotations.ringFinger) &&
-			!Gestures.isStraightish(hand.annotations.pinky)
+			Gestures.isRightish(hand.annotations.middleFinger, quick)
+			!Gestures.isCrookedish(hand.annotations.ringFinger) &&
+			!Gestures.isCrookedish(hand.annotations.pinky)
 		);
 	}
 
@@ -120,33 +124,36 @@ export default class Gestures {
 	static isTwoFingerPointLeft(hand, quick = false) {
 		return (
 			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isLeftish(hand.annotations.indexFinger))) &&
-			Gestures.isLeftish(hand.annotations.middleFinger) &&
-			!Gestures.isStraightish(hand.annotations.ringFinger) &&
-			!Gestures.isStraightish(hand.annotations.pinky)
+			Gestures.isLeftish(hand.annotations.middleFinger, quick)
+			!Gestures.isCrookedish(hand.annotations.ringFinger) &&
+			!Gestures.isCrookedish(hand.annotations.pinky)
 		);
 	}
 
-	static orientation(points) {
-		if( !Gestures.isStraightish(points) ) {
-			return null; // no orientation to speak of
-		} else if( Gestures.isHorizontalish(points) ) {
-			return Gestures.isRightish(points, true) ? Gestures.RIGHT : Gestures.LEFT
-		} else {
-			return Gestures.isUpish(points, true) ? Gestures.UP : Gestures.DOWN
+	static orientation(points, quick = false) {
+		if( quick || (Gestures.isParallelishToScreen(points) && Gestures.isStraightish(points)) ) {
+			if( Gestures.isHorizontalish(points) ) {
+				return Gestures.isRightish(points, true) ? Gestures.RIGHT : Gestures.LEFT
+			} else {
+				return Gestures.isUpish(points, true) ? Gestures.UP : Gestures.DOWN
+			}
 		}
+		return Gestures.NONE
 	}
 
 	static readGesture(hand) {
 		let currentDate = new Date();
 		let time = currentDate.getHours() + ":" + currentDate.getMinutes() + ":" + currentDate.getSeconds();
-		console.log(time);
+		if( ! Gestures.isParallelishToScreen(hand.landmarks) ) {
+			return Gestures.NONE
+		}
 		switch(Gestures.orientation(hand.annotations.indexFinger) ) {
 			case Gestures.UP:
 				return Gestures.isHighFive(hand, true) ? Gestures.HIGHFIVE : Gestures.NONE;
 			case Gestures.RIGHT:
-				return Gestures.isTwoFingerPointLeft(hand, true) ? Gestures.TWOFINGERPOINTLEFT : Gestures.NONE;
+				return Gestures.isTwoFingerPointRight(hand, true) ? Gestures.TWOFINGERPOINTRIGHT : Gestures.NONE;
 			case Gestures.LEFT:
-				return Gestures.isTwoFingerPointRight(hand, true) ? Gestures.TWOFINGERPOINTRIGHT: Gestures.NONE;
+				return Gestures.isTwoFingerPointLeft(hand, true) ? Gestures.TWOFINGERPOINTLEFT: Gestures.NONE;
 			default:
 				return Gestures.NONE;
 		}
@@ -154,13 +161,13 @@ export default class Gestures {
 
 	static debug(hand) {
 		let points = [
-			['landmarks',			hand.landmarks],
+			//['landmarks',			hand.landmarks],
 			['thumb',					hand.annotations.thumb],
 			['indexFinger',		hand.annotations.indexFinger],
 			['middleFinger',	hand.annotations.middleFinger],
 			['ringFinger',		hand.annotations.ringFinger],
 			['pinky',					hand.annotations.pinky],
-			['palmBase',			hand.annotations.palmBase],
+			//['palmBase',			hand.annotations.palmBase],
 		];
 		let funcs = [
 			['down',			Gestures.isDownish],
