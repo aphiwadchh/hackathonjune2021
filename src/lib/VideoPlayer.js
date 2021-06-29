@@ -182,10 +182,12 @@ export default class VideoPlayer {
         this.detectedKnownGuesture()
         break;;
       case Gestures.TWOFINGERPOINTLEFT:
+				this.skipBack()
         console.log('<<')
         this.detectedKnownGuesture()
         break;;
       case Gestures.TWOFINGERPOINTRIGHT:
+				this.skipAhead()
         console.log('>>')
         this.detectedKnownGuesture()
         break;;
