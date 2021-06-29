@@ -8,7 +8,6 @@ export default class VideoPlayer {
     this.debugMode = true;
     this.predictions = [];
     this.video = null;
-		this.gestures = new Gestures();
     this.init();
   }
 
@@ -79,6 +78,7 @@ export default class VideoPlayer {
           {
             flipHorizontal: true
           },
+					() => console.log('ml5 loaded')
         );
 
         // This sets up an event that fills the global variable "predictions"
@@ -108,7 +108,21 @@ export default class VideoPlayer {
   drawKeypoints(sketch, predictions) {
     for (let i = 0; i < predictions.length; i += 1) {
       const prediction = predictions[i];
-			this.gestures.debug(predictions);
+			switch(Gestures.readGesture(prediction) ) {
+				case Gestures.HIGHFIVE:
+					console.log('5')
+					break;;
+				case Gestures.TWOFINGERPOINTLEFT:
+					console.log('<<')
+					break;;
+				case Gestures.TWOFINGERPOINTRIGHT:
+					console.log('>>')
+					break;;
+				case Gestures.NONE:
+					console.log('no gesture')
+					Gestures.debug(prediction);
+					break;;
+			}
 
       // let isHighFive = this.isHighFive(prediction);
 
