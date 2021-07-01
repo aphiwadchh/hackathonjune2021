@@ -92,7 +92,7 @@ export default class VideoPlayer {
         );
         this.video.parent(this.container);
         this.video.volume(0);
-        // this.video.attribute("controls", true);
+        this.video.attribute("controls", true);
         webcam = sketch.createCapture(sketch.VIDEO);
         webcam.size(sketch.width, sketch.height)
         webcam.parent(debugContainer)
