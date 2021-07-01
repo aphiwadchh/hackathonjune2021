@@ -40,13 +40,13 @@ export default class Gestures {
 		]
 	}
 
-	static isHorizontalish(points) {
+	static isHorizontalish(points, palmbase) {
 		let [y, z] = Gestures.slopeBetween(points);
 		return -1 < y && y < 1
 	}
 
-	static isVerticalish(points) {
-		return !Gestures.isHorizontalish(points);
+	static isVerticalish(points, palmbase) {
+		return !Gestures.isHorizontalish(points, palmbase);
 	}
 
 	static isApproximatelyEqual(a, b, error = 0.25) {
@@ -65,81 +65,108 @@ export default class Gestures {
 		])[1]) < 0.4
 	}
 
-	static isStraightish(points) {
-		let slopes = Gestures.slopesBetween(points)
+	static isStraightish(points, palmbase) {
+		const fingertip_index = 3;
+		let straight = false;
+		const furthestFingerPoint = points.reduce(function(result, item, index){
+			return Gestures.maxDistance(result, item, palmbase[0], index);
+		}, {distance: 0, index: 0});
+		if(furthestFingerPoint.index === fingertip_index) {
+			straight = true;
+		}
+		return straight;
+		/*let slopes = Gestures.slopesBetween(points)
 		return true
-		return Math.abs(slopes[slopes.length-1][0] - slopes[0][0]) < 1
+		return Math.abs(slopes[slopes.length-1][0] - slopes[0][0]) < 1 */
 	}
 
-	static isCrookedish(points) {
-		return true
-		return !Gestures.isStraightish(points)
+	static calcDistance(fingerpoint, palmbase) {
+		return (Math.sqrt(
+			Math.pow((palmbase[0] - fingerpoint[0]), 2) +
+			Math.pow((palmbase[1] - fingerpoint[1]), 2) +
+			Math.pow((palmbase[2] - fingerpoint[2]), 2)
+		  ));
 	}
 
-	static isRightish(points, quick = false) {
+	static maxDistance (result = {distance: 0, index: 0}, fingerpoint, palmbase, index) {
+
+		const pointDistance = Gestures.calcDistance(fingerpoint, palmbase);
+		if(result.distance < pointDistance){
+		  result.distance = pointDistance;
+		  result.index = index;
+		} 
+		return result;
+	  }
+
+	static isCrookedish(points, palmbase) {
+		return true
+		return !Gestures.isStraightish(points, palmbase)
+	}
+
+	static isRightish(points, palmbase, quick = false) {
 		return (
-			(quick || (Gestures.isHorizontalish(points) && Gestures.isStraightish(points))) &&
+			(quick || (Gestures.isHorizontalish(points, palmbase) && Gestures.isStraightish(points, palmbase))) &&
 			Gestures.isInOrder(points.map((x) => x[0]))
 		);
 	}
 
-	static isLeftish(points, quick = false) {
+	static isLeftish(points, palmbase, quick = false) {
 		return (
-			(quick || (Gestures.isHorizontalish(points) && Gestures.isStraightish(points))) &&
-			!Gestures.isRightish(points, true)
+			(quick || (Gestures.isHorizontalish(points, palmbase) && Gestures.isStraightish(points, palmbase))) &&
+			!Gestures.isRightish(points, palmbase, true)
 		);
 	}
 
-	static isDownish(points, quick = false) {
+	static isDownish(points, palmbase, quick = false) {
 		return (
-			(quick || (Gestures.isVerticalish(points) && Gestures.isStraightish(points))) &&
+			(quick || (Gestures.isVerticalish(points, palmbase) && Gestures.isStraightish(points, palmbase))) &&
 			Gestures.isInOrder(points.map((x) => x[1]))
 		);
 	}
 
-	static isUpish(points, quick = false) {
+	static isUpish(points, palmbase, quick = false) {
 		return (
-			(quick || (Gestures.isVerticalish(points) && Gestures.isStraightish(points))) &&
-			!Gestures.isDownish(points, true)
+			(quick || (Gestures.isVerticalish(points, palmbase) && Gestures.isStraightish(points, palmbase))) &&
+			!Gestures.isDownish(points, palmbase, true)
 		);
 	}
 
 	static isHighFive(hand, quick = false) {
 		return (
-			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isUpish(hand.annotations.indexFinger))) &&
-			Gestures.isUpish(hand.annotations.middleFinger) &&
-			Gestures.isUpish(hand.annotations.ringFinger) &&
-			Gestures.isUpish(hand.annotations.pinky)
+			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isUpish(hand.annotations.indexFinger, hand.annotations.palmBase))) &&
+			Gestures.isUpish(hand.annotations.middleFinger, hand.annotations.palmBase) &&
+			Gestures.isUpish(hand.annotations.ringFinger, hand.annotations.palmBase) &&
+			Gestures.isUpish(hand.annotations.pinky, hand.annotations.palmBase)
 		);
 	}
 
 	// we're thinking to use this for "skip"
 	static isTwoFingerPointRight(hand, quick = false) {
 		return (
-			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isRightish(hand.annotations.indexFinger))) &&
-			Gestures.isRightish(hand.annotations.middleFinger, quick) &&
-			Gestures.isCrookedish(hand.annotations.ringFinger) &&
-			Gestures.isCrookedish(hand.annotations.pinky)
+			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isRightish(hand.annotations.indexFinger, hand.annotations.palmBase))) &&
+			Gestures.isRightish(hand.annotations.middleFinger, hand.annotations.palmBase) &&
+			!Gestures.isStraightish(hand.annotations.ringFinger, hand.annotations.palmBase) &&
+			!Gestures.isStraightish(hand.annotations.pinky, hand.annotations.palmBase)
 		);
 	}
 
 	// we're thinking to use this for "skip back"
 	static isTwoFingerPointLeft(hand, quick = false) {
 		return (
-			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isLeftish(hand.annotations.indexFinger))) &&
-			Gestures.isLeftish(hand.annotations.middleFinger, quick) &&
-			Gestures.isCrookedish(hand.annotations.ringFinger) &&
-			Gestures.isCrookedish(hand.annotations.pinky)
+			(quick || (Gestures.isParallelishToScreen(hand.landmarks) && Gestures.isLeftish(hand.annotations.indexFinger, hand.annotations.palmBase))) &&
+			Gestures.isLeftish(hand.annotations.middleFinger, hand.annotations.palmBase) &&
+			!Gestures.isStraightish(hand.annotations.ringFinger, hand.annotations.palmBase) &&
+			!Gestures.isStraightish(hand.annotations.pinky, hand.annotations.palmBase)
 		);
 	}
 
-	static orientation(points, quick = false) {
-		if( quick || (Gestures.isParallelishToScreen(points) && Gestures.isStraightish(points)) ) {
-			if( Gestures.isHorizontalish(points) ) {
-				return Gestures.isRightish(points, true) ? Gestures.RIGHT : Gestures.LEFT
-			} else {
-				return Gestures.isUpish(points, true) ? Gestures.UP : Gestures.DOWN
-			}
+	static orientation(points, palmbase) {
+		if( !Gestures.isStraightish(points, palmbase) ) {
+			return null; // no orientation to speak of
+		} else if( Gestures.isHorizontalish(points, palmbase) ) {
+			return Gestures.isRightish(points, palmbase,  true) ? Gestures.RIGHT : Gestures.LEFT
+		} else {
+			return Gestures.isUpish(points, palmbase, true) ? Gestures.UP : Gestures.DOWN
 		}
 		return Gestures.NONE
 	}
@@ -149,7 +176,7 @@ export default class Gestures {
 			console.log('not parallel')
 			return Gestures.NONE
 		}
-		switch(Gestures.orientation(hand.annotations.indexFinger) ) {
+        switch(Gestures.orientation(hand.annotations.indexFinger, hand.annotations.palmBase) ) {
 			case Gestures.UP:
 				return Gestures.isHighFive(hand, true) ? Gestures.HIGHFIVE : Gestures.NONE;
 			case Gestures.RIGHT:
@@ -184,7 +211,7 @@ export default class Gestures {
 		let result = {};
 		for (let i = 0; i < points.length; i++) {
 			result[points[i][0]] = funcs.filter(
-				([name, func]) => func(points[i][1])
+				([name, func]) => func(points[i][1], hand.annotations.palmBase)
 			).map(
 				([name, func]) => name
 			).sort().reduce(
